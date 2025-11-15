@@ -9,12 +9,10 @@ function getRoutesData(spreadSheet) {
     .getValues();
 }
 
-function getRoutesJpData(spreadSheet) {
-  let sheet = spreadSheet.getSheetByName("routes_jp");
-  return sheet
-    .getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn())
-    .getValues();
-}
+// function getRoutesJpData(spreadSheet) {
+//   let sheet = spreadSheet.getSheetByName("routes_jp");
+//   return sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+// }
 
 function getExpressBusData(spreadSheet) {
   let sheet = spreadSheet.getSheetByName("ExpressBus");
@@ -110,8 +108,8 @@ function notifyToDiscord(messtr) {
 // busDataList: [[route_id, departure_time, バス号車番号] xN]
 function notify(busDataList) {
   let spreadSheet = getSpreadSheet();
-  let routesData = getRoutesData(spreadSheet);
-  let routesJpData = getRoutesJpData(spreadSheet);
+  // let routesData = getRoutesData(spreadSheet);
+  // let routesJpData = getRoutesJpData(spreadSheet);
   let expressBusData = getExpressBusData(spreadSheet);
 
   let result = getDateString("yyyyMMdd");
@@ -122,6 +120,16 @@ function notify(busDataList) {
     // ない場合は作成
     writeSheet = spreadSheet.insertSheet();
     writeSheet.setName(result);
+
+    // 新しいシートの現在の行数と列数を取得する
+    const rows = 100;
+    const cols = 5;
+    const maxRows = writeSheet.getMaxRows();
+    const maxCols = writeSheet.getMaxColumns();
+
+    // 余分な行と列を削除する
+    writeSheet.deleteRows(rows + 1, maxRows - rows);
+    writeSheet.deleteColumns(cols + 1, maxCols - cols);
   }
 
   let accumulatedData = [];
@@ -221,13 +229,22 @@ function main() {
   for (let i = 1; i < contentsList.length; i++) {
     // 渋川特急運行情報のみをroute_id, departure_time, バス号車番号の体裁で読み出し
 
-    if (!/25003_\d+_1/.test(contentsList[i])) {
+    if (
+      !/25003_\d+_1/.test(contentsList[i]) &&
+      !/25006_816_1/.test(contentsList[i])
+    ) {
       // 渋川特急でない場合はスキップ
+      // 三井E&S前→大池・玉原・秀天橋→ダイキ岡山でない場合はスキップ
       continue;
     }
 
     let busData = [];
-    busData.push(contentsList[i].match(/25003+_\d+_\d+/));
+    if (/25003_\d+_1/.test(contentsList[i])) {
+      busData.push(contentsList[i].match(/25003+_\d+_\d+/));
+    }
+    if (/25006_816_1/.test(contentsList[i])) {
+      busData.push(contentsList[i].match(/25006_816_1/));
+    }
     busData.push(contentsList[i].match(/\d{2,2}:\d{2,2}:\d{2,2}/));
     busData.push(contentsList[i].match(/F\d{4,4}/));
     busDataList.push(busData);
