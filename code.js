@@ -219,7 +219,7 @@ function main() {
   }
 
   // 運行情報をリストに変換
-  let contentsList = contents.split(/!tripUpdate_/);
+  let contentsList = contents.split(/tripUpdate_/);
   if (contentsList.length <= 1) {
     Logger.log("処理対象データなし");
     return;
