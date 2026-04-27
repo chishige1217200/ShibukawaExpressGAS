@@ -1,3 +1,5 @@
+const activate = true;
+
 function getSpreadSheet() {
   return SpreadsheetApp.getActiveSpreadsheet();
 }
@@ -42,10 +44,20 @@ function search(param, target, returnColumnId) {
 
 function getGtfsData() {
   // 運行情報取得
-  let response = UrlFetchApp.fetch(
-    "https://loc.bus-vision.jp/realtime/ryobi_trip_update.bin"
-  );
-  return response.getContentText();
+  Logger.log("GTFSデータをを受信します。");
+
+  try {
+    const response = UrlFetchApp.fetch(
+      "https://loc.bus-vision.jp/realtime/ryobi_trip_update.bin",
+    );
+    Logger.log("GTFSデータを受信しました。");
+    return response.getContentText();
+  } catch {
+    // 例外エラー処理
+    Logger.log("Error:");
+    Logger.log(e);
+    throw e;
+  }
 }
 
 function saveTextFile(contents) {
@@ -69,7 +81,7 @@ function saveTextFile(contents) {
   // Blob作成
   const blob = Utilities.newBlob("", contentType, fileName).setDataFromString(
     contents,
-    charset
+    charset,
   );
 
   // ファイルに保存
@@ -98,11 +110,23 @@ function notifyToDiscord(messtr) {
 
   const param = {
     method: "POST",
+    muteHttpExceptions: true,
     headers: { "Content-type": "application/json" },
     payload: JSON.stringify(message),
   };
 
-  UrlFetchApp.fetch(discordWebHookURL, param);
+  Logger.log("DiscordにWebhookを送信します。");
+
+  try {
+    const res = UrlFetchApp.fetch(discordWebHookURL, param);
+    Logger.log(res);
+    Logger.log("DiscordにWebhookを送信しました。");
+  } catch (e) {
+    // 例外エラー処理
+    Logger.log("Error:");
+    Logger.log(e);
+    throw e;
+  }
 }
 
 // busDataList: [[route_id, departure_time, バス号車番号] xN]
@@ -145,7 +169,7 @@ function notify(busDataList) {
     accumulatedData[i][1] = Utilities.formatDate(
       tempDate,
       "GMT+9",
-      "HH:mm:ss"
+      "HH:mm:ss",
     ).toString();
   }
 
@@ -198,19 +222,41 @@ function notify(busDataList) {
   }
 }
 
-function main() {
-  // 時刻取得
-  let result = getDateString("mm");
-  let mm = parseInt(result, 10);
+function isAllowedTime(timeStr) {
+  // "HH:mm:ss" → 秒に変換
+  const [h, m, s] = timeStr.split(":").map(Number);
+  const seconds = h * 3600 + m * 60 + s;
 
-  // TODO:負荷軽減のため，バス稼働時間外は通信を防止したい
+  // 判定範囲
+  const start = 23 * 3600 + 45 * 60; // 23:45:00
+  const end = 5 * 3600 + 45 * 60; // 05:45:00
+
+  // 日付跨ぎの範囲なので OR 条件
+  const isInRange = seconds >= start || seconds <= end;
+
+  return !isInRange;
+}
+
+function main() {
+  if (!activate) {
+    Logger.log("タスクが無効化されています。");
+    return;
+  }
+
+  // 時刻取得
+  const timeStr = getDateString("HH:mm:ss");
+  Logger.log(timeStr);
+  if (!isAllowedTime(timeStr)) {
+    Logger.log("時間外のため、処理を中止します。");
+    return;
+  }
 
   let contents = "";
   let testFlag = false;
 
   if (testFlag) {
     // テストコンテンツ読み込み
-    contents = DriveApp.getFileById("")
+    contents = DriveApp.getFileById("1ALBK6ws3jehkqoiOZ8a37cS7GcGfC4kK")
       .getBlob()
       .getDataAsString("UTF-8");
   } else {
